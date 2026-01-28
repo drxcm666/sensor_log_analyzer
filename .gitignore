@@ -1,0 +1,21 @@
+# Build artifacts (результати компіляції)
+build/
+*.exe
+*.o
+*.obj
+*.a
+*.dll
+
+# vcpkg installed packages (встановлені бібліотеки)
+**/vcpkg_installed/
+
+# IDE files (налаштування редактора)
+.vs/
+.vscode/
+*.suo
+*.user
+
+# Temporary files (тимчасові)
+*.log
+*.tmp
+~*
