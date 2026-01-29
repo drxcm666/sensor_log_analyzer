@@ -25,9 +25,12 @@ static bool is_expected_header(const std::vector<std::string> &tokens)
     return true;
 }
 
-CsvResult read_imu_csv(const std::filesystem::path& path)
+CsvStreamResult read_imu_csv_streaming(
+    const std::filesystem::path& path,
+    const CsvRowCallback& on_row
+)
 {
-    CsvResult r;
+    CsvStreamResult r;
     r.input_path = path;
     r.input_name = path.filename().string();
 
@@ -39,12 +42,10 @@ CsvResult read_imu_csv(const std::filesystem::path& path)
         r.error = "Error, can't open file: " + path.string();
         return r;
     }
-    
-    constexpr std::size_t EXPECTED_COLUMNS = 7;
 
+    constexpr std::size_t EXPECTED_COLUMNS = 7;
     std::string line;
 
-    // Читаємо рядок за рядком
     while (std::getline(file, line))
     {
         r.counts.total_lines++;
@@ -80,7 +81,7 @@ CsvResult read_imu_csv(const std::filesystem::path& path)
             });
             continue;
         }
-        
+
         // header check
         if (!r.header_found && is_expected_header(tokens))
         {
@@ -88,28 +89,55 @@ CsvResult read_imu_csv(const std::filesystem::path& path)
             r.counts.header_lines++;
             continue;
         }
-        
+
         // parse numbers: either all 7 ok, or return index of first bad token
-        auto parsed = convert_all_or_bad_syntax(tokens);
+        // auto parsed = convert_all_or_bad_syntax(tokens);
 
-        if (std::holds_alternative<std::vector<double>>(parsed))
+        std::array<double, 7> row{};
+        std::size_t bad_idx{0};
+
+        if (parse_row_to_array(tokens, row, bad_idx, EXPECTED_COLUMNS))
         {
-            const auto &v = std::get<std::vector<double>>(parsed);
-
-            r.data.t_ms.push_back(v[0]);
-            r.data.ax.push_back(v[1]);
-            r.data.ay.push_back(v[2]);
-            r.data.az.push_back(v[3]);
-            r.data.gx.push_back(v[4]);
-            r.data.gy.push_back(v[5]);
-            r.data.gz.push_back(v[6]);
-
             r.counts.parsed_lines++;
+
+            // ??
+            // using Meter = double;
+            //
+            // read_imu_csv — це людина, яка читає файл
+            // std::array<double,7> — це листок з 7 цифрами (один рядок)
+            // std::function — це інструкція, що робити з листком
+            //
+            // on_row({v[0], v[1], v[2], v[3], v[4], v[5], v[6]});
+            // Це читається так:
+            // “Я (read_imu_csv) зробив 7 чисел.
+            // Ось вони. Тримай. Виконай інструкцію on_row.”
+            //
+            // коли викликаєш read_imu_csv.
+            // Приклад: інструкція “надрукуй”
+            //
+            // (в іншому файлі)
+            // read_imu_csv("imu.csv",
+            //   [](const std::array<double,7>& row) {
+            //       std::cout << row[0] << "\n";
+            //   }
+            // );
+            //
+            // Тут ти дав інструкцію: друкувати перше число.
+            //
+            // Тут std::function зберігає НЕ числа, а оцю “дію друку” (лямбду).
+            // А числа (row) приходять кожного разу нові, коли читається новий рядок.
+            //
+            //--------------------------------------
+            // if (on_row)
+            // checks whether the string handler has been passed, and if so, calls it
+            // sla::read_imu_csv_streaming(opt.input_file, [&](const std::array<double, 7>& row)
+            if (on_row)
+            {
+                on_row(row);
+            }
         }
         else
         {
-            // Індекс помилкового токена
-            std::size_t bad_idx = std::get<std::size_t>(parsed);
             r.counts.bad_lines++;
 
             Warning w;
@@ -118,11 +146,10 @@ CsvResult read_imu_csv(const std::filesystem::path& path)
             w.column = bad_idx + 1;
             w.value = std::optional<std::string>(tokens[bad_idx]);
 
-            // Moves the entire structure “w” into the vector, rather than copying it
             r.warnings.push_back(std::move(w));
         }
     }
-    
+
     return r;
 }
 

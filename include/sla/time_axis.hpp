@@ -1,8 +1,10 @@
 #pragma once
-#include <vector>
+
 #include <cmath>
 #include <cstddef>
-#include "stats.hpp"
+#include <functional>
+
+#include "welford_stats.hpp"
 
 
 namespace sla{
@@ -23,14 +25,54 @@ struct TimeAxisReport
     TimeAxisIssues anomalies{};
 };
 
-// Calculates only positive dt between adjacent t[i]-t[i-1]
-std::vector<double> compute_positive_dts(const std::vector<double> &t);
 
-// Analysis of the time axis by expected dt (often mean dt)
-TimeAxisIssues time_axis_analysis(const std::vector<double> &t, double expected_dt);
 
-// dt_values -> dt_stats -> anomalies -> sampling_hz_est
-TimeAxisReport make_time_axis_report(const std::vector<double> &timestamps);
+// time_axis.hpp
+// #pragma once
+// #include <functional>
+//
+// namespace sla {
+// using TimestampVisitor = std::function<void(double)>;
+// using TimestampStream  = std::function<void(const TimestampVisitor&)>;
+//
+// double sum_timestamps(const TimestampStream& stream);
+// -----------------------------
+// time_axis.cpp
+// #include "time_axis.hpp"
+//
+// namespace sla {
+// double sum_timestamps(const TimestampStream& stream)
+// {
+//     double sum = 0.0;
+//
+//     stream([&](double t) {   // visitor
+//         sum += t;            // обробка одного timestamp
+//     });
+//
+//     return sum;
+// }
+// }
+// ------------------------------
+// main.cpp
+// #include <iostream>
+// #include <vector>
+// #include "time_axis.hpp"
+//
+// int main()
+// {
+//     std::vector<double> t = {1.0, 2.0, 3.0};
+//
+//     sla::TimestampStream stream = [&](const sla::TimestampVisitor& visit) {
+//         for (double x : t) visit(x);   // "віддаємо" x по одному
+//     };
+//
+//     std::cout << sla::sum_timestamps(stream) << "\n"; // 6
+// }
+
+using TimestampVisitor = std::function<void(double)>;
+using TimestampStream = std::function<void(const TimestampVisitor)>;
+
+TimeAxisReport make_time_axis_report_streaming(const TimestampStream &stream);
 
 
 }

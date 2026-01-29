@@ -29,7 +29,8 @@ public:
     void write_header(const std::array<std::string_view, 7>& header);
 
     // Write one line of values (we expect == header.size)
-    void write_row(const std::vector<double>& v);
+    // void write_row(const std::vector<double>& v);
+    void write_row(const std::array<double, 7>& v);
 
     // Close file
     void close();

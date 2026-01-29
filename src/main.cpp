@@ -1,3 +1,11 @@
+#include "welford_stats.hpp"
+#include "time_axis.hpp"
+#include "report.hpp"
+#include "csv.hpp"
+#include "clean_writer.hpp"
+#include "report_json.hpp"
+#include "cli.hpp"
+
 #include <fmt/core.h>
 #include <iostream>
 #include <string>
@@ -5,14 +13,7 @@
 #include <vector>
 #include <variant>
 #include <array>
-
-#include "stats.hpp"
-#include "time_axis.hpp"
-#include "report.hpp"
-#include "csv.hpp"
-#include "clean_writer.hpp"
-#include "report_json.hpp"
-#include "cli.hpp"
+#include <cmath>
 
 
 int main(int argc, char *argv[])
@@ -67,62 +68,104 @@ int main(int argc, char *argv[])
             {message="invalid value", line=89, column=5, value="NaN"}
         ]
     */
-    auto csv_result = sla::read_imu_csv(opt.input_file);
+    // auto csv_result = sla::read_imu_csv(opt.input_file);
 
-    if (!csv_result.ok)
+    const bool do_clean = (opt.cmd == sla::cli::Command::Clean);
+    sla::CleanWriter writer;
+
+    if (do_clean)
     {
-        fmt::println(stderr, "Error: {}", csv_result.error);
-        return 1;
-    }
-
-    if (opt.cmd == sla::cli::Command::Clean)
-    {
-        auto clean_path = sla::make_clean_path(csv_result.input_path);
-
-        sla::CleanWriter writter;
-
-        if (!writter.open(clean_path))
+        auto clean_path = sla::make_clean_path(opt.input_file);
+        if (!writer.open(clean_path))
         {
             fmt::println(stderr, "Error: can't open file for writing: {}", clean_path.string());
             return 1;
         }
 
-        writter.write_header(sla::EXPECTED_HEADER);
-
-        for (size_t i = 0; i < csv_result.data.t_ms.size(); i++)
-        {
-            std::vector<double> row = {
-                csv_result.data.t_ms[i],
-                csv_result.data.ax[i],
-                csv_result.data.ay[i],
-                csv_result.data.az[i],
-                csv_result.data.gx[i],
-                csv_result.data.gy[i],
-                csv_result.data.gz[i]
-            };
-
-            writter.write_row(row);
-        }
-        
-        writter.close();
-        fmt::println("Clean CSV written to: {}", clean_path.string());
+        writer.write_header(sla::EXPECTED_HEADER);
     }
-        
-    sla::Report report;
-    report.input = csv_result.input_name;
-    report.counts = csv_result.counts;
-    report.warnings = csv_result.warnings;
 
-    report.time_axis = sla::make_time_axis_report(csv_result.data.t_ms);
+    sla::WelfordStats ax, ay, az, gx, gy, gz, dt_stats;
+    bool have_last_t = false;
+    double last_t = 0.0;
 
-    report.statistics.ax = sla::calculate_stats(csv_result.data.ax);
-    report.statistics.ay = sla::calculate_stats(csv_result.data.ay);
-    report.statistics.az = sla::calculate_stats(csv_result.data.az);
-    report.statistics.gx = sla::calculate_stats(csv_result.data.gx);
-    report.statistics.gy = sla::calculate_stats(csv_result.data.gy);
-    report.statistics.gz = sla::calculate_stats(csv_result.data.gz);
+    auto pass1 = sla::read_imu_csv_streaming(opt.input_file,
+    [&](const std::array<double, 7> &row)
+    {
+        const double t = row[0];
+
+        ax.update(row[1]);
+        ay.update(row[2]);
+        az.update(row[3]);
+        gx.update(row[4]);
+        gy.update(row[5]);
+        gz.update(row[6]);
+
+        if (have_last_t)
+        {
+            double dt = t - last_t;
+            if (dt > 0.0)
+                dt_stats.update(dt);
+        }
+
+        last_t = t;
+        have_last_t = true;
+
+        if (do_clean)
+        {
+            writer.write_row(row);
+        }
+    });
+
+    if (do_clean)
+        writer.close();
+
+    if (!pass1.ok)
+    {
+        fmt::println(stderr, "Error: {}", pass1.error);
+        return 1;
+    }
     
-    auto json_path = sla::default_report_json_path(csv_result.input_path);
+    // ???
+    auto to_stats = [](const sla::WelfordStats &w)
+    {
+        sla::Stats s;
+        if (w.count() == 0)
+            return s;
+        
+        s.count = static_cast<int>(w.count());
+        s.min = w.min();
+        s.max = w.max();
+        s.mean = w.mean();
+        s.std = w.stddev();
+
+        return s;
+        
+    };
+
+    sla::Report report;
+    report.input = pass1.input_name;
+    report.counts = pass1.counts;
+    report.warnings = pass1.warnings;
+
+    report.time_axis = sla::make_time_axis_report_streaming(
+        [&](const sla::TimestampVisitor &visit)
+        {
+            (void)sla::read_imu_csv_streaming(opt.input_file,
+                [&](const std::array<double, 7> &row)
+                {
+                    visit(row[0]);
+                });
+        });
+
+    report.statistics.ax = to_stats(ax);
+    report.statistics.ay = to_stats(ay);
+    report.statistics.az = to_stats(az);
+    report.statistics.gx = to_stats(gx);
+    report.statistics.gy = to_stats(gy);
+    report.statistics.gz = to_stats(gz);
+    
+    auto json_path = sla::default_report_json_path(pass1.input_path);
 
     try
     {

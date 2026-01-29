@@ -120,7 +120,7 @@ bool parse_simple_double(std::string_view s, double &out)
     if (!is_simple_decimal(s))
         return false;
 
-    std::string tmp(s); // потрібен '\0' в кінці для strtod
+    std::string tmp(s); // need ‘\0’ at the end for strtod
     errno = 0;
     char *end = nullptr;
 
@@ -140,41 +140,31 @@ bool parse_simple_double(std::string_view s, double &out)
     return true;
 }
 
-
-/*
- * Attempts to convert all strings in a vector to doubles.
- *
- * Returns a variant containing either:
- *   - A vector of successfully parsed doubles (if all conversions succeed)
- *   - The index of the first string that failed to parse (if any conversion fails)
- *
- * Process:
- *   1. Reserve space in output vector to match input size for efficiency
- *   2. Iterate through each string in the input vector
- *   3. Attempt to parse each string as a double using parse_simple_double()
- *   4. If parsing fails, immediately return the index of the failed string
- *   5. If parsing succeeds, add the double to the output vector
- *   6. After all strings are processed successfully, return the complete vector
- */
-std::variant<std::vector<double>, size_t>
-convert_all_or_bad_syntax(const std::vector<std::string> &v)
+bool parse_row_to_array(
+    const std::vector<std::string> &v,
+    std::array<double, 7> &out,
+    std::size_t &bad_idx,
+    std::size_t EXPECTED_COLUMNS
+)
 {
-    std::vector<double> out;
-    out.reserve(v.size());
-
-    for (size_t i = 0; i < v.size(); ++i)
+    if (v.size() != EXPECTED_COLUMNS)
+    {
+        bad_idx = 0;
+        return false;
+    }
+    
+    for (std::size_t i = 0; i < EXPECTED_COLUMNS; i++)
     {
         double x;
         if (!parse_simple_double(v[i], x))
         {
-            return i;
+            bad_idx = i;
+            return false;
         }
-
-        out.push_back(x);
+        out[i] = x;
     }
 
-    return out;
+    return true;
 }
-
 
 }

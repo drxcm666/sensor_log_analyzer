@@ -29,7 +29,7 @@ bool CleanWriter::open(const std::filesystem::path &out_path)
     return out_.is_open();
 }
 
-void CleanWriter::write_header(const std::array<std::string_view, 7> & header)
+void CleanWriter::write_header(const std::array<std::string_view, 7> &header)
 {
     for (size_t i = 0; i < header.size(); i++)
     {
@@ -40,7 +40,7 @@ void CleanWriter::write_header(const std::array<std::string_view, 7> & header)
     out_ << '\n';
 }
 
-void CleanWriter::write_row(const std::vector<double>& v)
+void CleanWriter::write_row(const std::array<double, 7> &v)
 {
     if (v.size() != 7) return;
 

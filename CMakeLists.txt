@@ -9,7 +9,6 @@ add_executable(sla
     src/util.cpp
     src/csv_split.cpp
     src/number_parse.cpp
-    src/stats.cpp
     src/time_axis.cpp
     src/csv.cpp
     src/clean_writer.cpp

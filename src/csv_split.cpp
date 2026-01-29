@@ -31,7 +31,7 @@ std::vector<std::string> split_by_comma(std::string_view s)
             pos = s.size();
 
         std::string_view part = trim(s.substr(start, pos - start));
-        out.emplace_back(part); // конструює string напряму
+        out.emplace_back(part);    // constructs a string directly
 
         start = pos + 1;
     }
