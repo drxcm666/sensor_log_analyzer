@@ -77,9 +77,10 @@ bool is_simple_decimal(std::string_view s)
 
     if (s[i] == '-' || s[i] == '+')
     {
-        if (s.size() == 1)
-            return false;
         ++i;
+
+        if (i == s.size())
+            return false;
     }
 
     size_t exp_digits{0};
@@ -140,30 +141,22 @@ bool parse_simple_double(std::string_view s, double &out)
     return true;
 }
 
-bool parse_row_to_array(
-    const std::vector<std::string> &v,
+bool parse_row_to_array_sv(
+    const std::array<std::string_view, 7> &tokens,
     std::array<double, 7> &out,
-    std::size_t &bad_idx,
-    std::size_t EXPECTED_COLUMNS
-)
+    std::size_t &bad_idx)
 {
-    if (v.size() != EXPECTED_COLUMNS)
-    {
-        bad_idx = 0;
-        return false;
-    }
-    
-    for (std::size_t i = 0; i < EXPECTED_COLUMNS; i++)
+    for (std::size_t i = 0; i < out.size(); i++)
     {
         double x;
-        if (!parse_simple_double(v[i], x))
+        if (!parse_simple_double(tokens[i], x))
         {
             bad_idx = i;
             return false;
         }
         out[i] = x;
     }
-
+    
     return true;
 }
 

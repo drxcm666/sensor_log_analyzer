@@ -4,40 +4,40 @@
 
 namespace sla{
 
-
-/*
- * Splits a string by comma delimiters and returns a vector of trimmed strings.
- *
- * Process:
- * - Iterates through the input string looking for comma characters
- * - Extracts substrings between commas using find()
- * - Trims whitespace from each substring using trim()
- * - Stores each part (including empty ones after trimming) in the output vector
- *
- * Example: "apple, banana , cherry" -> ["apple", "banana", "cherry"]
- *
- * @param s Input string_view to split
- * @return Vector of trimmed strings
- */
-std::vector<std::string> split_by_comma(std::string_view s)
+SplitStatus split_csv (
+    std::string_view s, 
+    std::array<std::string_view, 7> &out, 
+    std::size_t &actual_columns)
 {
-    std::vector<std::string> out;
-    size_t start = 0;
+    actual_columns = 0;
+    std::size_t start = 0;
 
     while (start <= s.size())
     {
-        size_t pos = s.find(',', start);
+        std::size_t pos = s.find(',', start);
         if (pos == std::string_view::npos)
             pos = s.size();
+        
+        std::string_view part =  trim(s.substr(start, pos - start));
 
-        std::string_view part = trim(s.substr(start, pos - start));
-        out.emplace_back(part);    // constructs a string directly
-
+        if (actual_columns < out.size())
+        {
+            out[actual_columns] = part;
+        }
+        
         start = pos + 1;
+        actual_columns++;
+
+        if (pos == s.size())
+        {
+            break;
+        }
     }
 
-    return out;
-}
+    if (actual_columns < out.size()) return SplitStatus::TooFew;
+    if (actual_columns > out.size()) return SplitStatus::TooMany;
 
+    return SplitStatus::Ok;
+} 
 
 }

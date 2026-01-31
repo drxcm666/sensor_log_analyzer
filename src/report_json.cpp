@@ -138,4 +138,4 @@ void write_report_json_file(const Report &r, const std::filesystem::path &output
     f << j.dump(4);
 }
 
-}
+} 

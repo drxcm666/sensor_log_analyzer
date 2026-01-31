@@ -36,47 +36,13 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-
-    /*
-        csv_result
-    ├── ok = true
-    ├── error = ""
-    ├── input_path = "d:/data/imu_dirty.csv"
-    ├── input_name = "imu_dirty.csv"
-    ├── header_found = true
-    │
-    ├── counts
-    │   ├── total_lines = 1005
-    │   ├── empty_lines = 2
-    │   ├── comment_lines = 1
-    │   ├── header_lines = 1
-    │   ├── parsed_lines = 998
-    │   └── bad_lines = 3
-    │
-    ├── data
-    │   ├── t_ms = [1000.0, 1010.5, 1020.3, ...] (998 елементів)
-    │   ├── ax = [0.12, 0.15, 0.11, ...]         (998 елементів)
-    │   ├── ay = [-0.05, -0.03, -0.04, ...]      (998 елементів)
-    │   ├── az = [9.78, 9.81, 9.79, ...]         (998 елементів)
-    │   ├── gx = [0.01, 0.02, 0.01, ...]         (998 елементів)
-    │   ├── gy = [-0.01, 0.00, -0.01, ...]       (998 елементів)
-    │   └── gz = [0.00, 0.01, 0.00, ...]         (998 елементів)
-    │
-    └── warnings = [
-            {message="invalid value", line=15, column=3, value="abc"},
-            {message="incorrect number of columns", line=42, ...},
-            {message="invalid value", line=89, column=5, value="NaN"}
-        ]
-    */
-    // auto csv_result = sla::read_imu_csv(opt.input_file);
-
     const bool do_clean = (opt.cmd == sla::cli::Command::Clean);
     sla::CleanWriter writer;
 
     if (do_clean)
     {
         auto clean_path = sla::make_clean_path(opt.input_file);
-        if (!writer.open(clean_path))
+        if (!writer.open(clean_path)) // Open file for writing
         {
             fmt::println(stderr, "Error: can't open file for writing: {}", clean_path.string());
             return 1;
@@ -88,8 +54,9 @@ int main(int argc, char *argv[])
     sla::WelfordStats ax, ay, az, gx, gy, gz, dt_stats;
     bool have_last_t = false;
     double last_t = 0.0;
-
+    
     auto pass1 = sla::read_imu_csv_streaming(opt.input_file,
+    // lambda
     [&](const std::array<double, 7> &row)
     {
         const double t = row[0];
@@ -105,7 +72,7 @@ int main(int argc, char *argv[])
         {
             double dt = t - last_t;
             if (dt > 0.0)
-                dt_stats.update(dt);
+                dt_stats.update(dt);  // Для чого коли тут є і дублікати ??
         }
 
         last_t = t;

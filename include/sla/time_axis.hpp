@@ -69,7 +69,10 @@ struct TimeAxisReport
 //     std::cout << sla::sum_timestamps(stream) << "\n"; // 6
 // }
 
+// function that takes a single timestamp
 using TimestampVisitor = std::function<void(double)>;
+
+// “function-stream”: “You give me ‘visit’, and I will call visit(t) for every t that I find.”
 using TimestampStream = std::function<void(const TimestampVisitor)>;
 
 TimeAxisReport make_time_axis_report_streaming(const TimestampStream &stream);

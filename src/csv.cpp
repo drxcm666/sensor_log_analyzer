@@ -1,23 +1,22 @@
 #include "csv.hpp"
 
 #include "util.hpp"         // trim(std::string_view)
-#include "csv_split.hpp"    // split_by_comma(std::string_view) -> std::vector<std::string>
-#include "number_parse.hpp" // convert_all_or_bad_syntax(std::vector<std::string>) -> variant<vector<double>, size_t>
+#include "csv_split.hpp"    // split_csv(...) + SplitStatus
+#include "number_parse.hpp" // parse_row_to_array_sv(...)
 
 #include <fstream>
 #include <string>
 #include <string_view>
-#include <algorithm>
 
 
 namespace sla {
 
 
-static bool is_expected_header(const std::vector<std::string> &tokens)
+static bool is_expected_header(const std::array<std::string_view, 7> &tokens)
 {
     if (tokens.size() != EXPECTED_HEADER.size()) return false;
 
-    for (size_t i = 0; i < EXPECTED_HEADER.size(); i++)
+    for (std::size_t i = 0; i < EXPECTED_HEADER.size(); i++)
     {
         if (tokens[i] != EXPECTED_HEADER[i]) return false;
     }
@@ -28,6 +27,9 @@ static bool is_expected_header(const std::vector<std::string> &tokens)
 CsvStreamResult read_imu_csv_streaming(
     const std::filesystem::path& path,
     const CsvRowCallback& on_row
+    // on_row — a “handler function” that is called for each valid row
+    // “You (main) give me a function-handler, and when I get a valid string, I'll call it.”
+    // implicitly: CsvRowCallback on_row = <lambda from main>;
 )
 {
     CsvStreamResult r;
@@ -43,7 +45,6 @@ CsvStreamResult read_imu_csv_streaming(
         return r;
     }
 
-    constexpr std::size_t EXPECTED_COLUMNS = 7;
     std::string line;
 
     while (std::getline(file, line))
@@ -66,15 +67,18 @@ CsvStreamResult read_imu_csv_streaming(
             continue;
         }
         
+        std::array<std::string_view, 7> tokens;
+        std::size_t actual_cols = 0;
+
         // split
-        auto tokens = split_by_comma(trimmed);
+        auto split_status = split_csv(trimmed, tokens, actual_cols);
 
         // columns count check
-        if (tokens.size() != EXPECTED_COLUMNS)
+        if (split_status != sla::SplitStatus::Ok)
         {
             r.counts.bad_lines++;
             r.warnings.push_back(Warning{
-                "incorrect number of columns (expected 7, got " + std::to_string(tokens.size()) + ")",
+                "incorrect number of columns (expected 7, got " + std::to_string(actual_cols) + ")",
                 r.counts.total_lines,
                 std::nullopt,
                 std::nullopt
@@ -90,13 +94,10 @@ CsvStreamResult read_imu_csv_streaming(
             continue;
         }
 
-        // parse numbers: either all 7 ok, or return index of first bad token
-        // auto parsed = convert_all_or_bad_syntax(tokens);
-
         std::array<double, 7> row{};
         std::size_t bad_idx{0};
 
-        if (parse_row_to_array(tokens, row, bad_idx, EXPECTED_COLUMNS))
+        if (parse_row_to_array_sv(tokens, row, bad_idx)) // here, “row” from main is filled with numbers
         {
             r.counts.parsed_lines++;
 
@@ -133,7 +134,7 @@ CsvStreamResult read_imu_csv_streaming(
             // sla::read_imu_csv_streaming(opt.input_file, [&](const std::array<double, 7>& row)
             if (on_row)
             {
-                on_row(row);
+                on_row(row); // = “execute the callback that was passed to me.”
             }
         }
         else
@@ -144,7 +145,7 @@ CsvStreamResult read_imu_csv_streaming(
             w.line = r.counts.total_lines;
             w.message = "invalid value";
             w.column = bad_idx + 1;
-            w.value = std::optional<std::string>(tokens[bad_idx]);
+            w.value = std::string(tokens[bad_idx]);
 
             r.warnings.push_back(std::move(w));
         }

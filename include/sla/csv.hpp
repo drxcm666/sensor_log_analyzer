@@ -30,12 +30,6 @@ struct CsvStreamResult
     std::vector<Warning> warnings;
 };
 
-
-
-
-
-
-
 // using Meter = double;
 //
 // read_imu_csv — це людина, яка читає файл
