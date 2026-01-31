@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cmath>
 #include <limits>
-#include <vector>
 
 
 namespace sla{

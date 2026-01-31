@@ -1,16 +1,15 @@
 #include "welford_stats.hpp"
-#include "time_axis.hpp"
-#include "report.hpp"
-#include "csv.hpp"
 #include "clean_writer.hpp"
 #include "report_json.hpp"
+#include "time_axis.hpp"
+#include "report.hpp"
 #include "cli.hpp"
+#include "csv.hpp"
 
-#include <fmt/core.h>
 #include <iostream>
+#include <fmt/core.h>
 #include <string>
 #include <filesystem>
-#include <vector>
 #include <variant>
 #include <array>
 #include <cmath>
@@ -51,7 +50,7 @@ int main(int argc, char *argv[])
         writer.write_header(sla::EXPECTED_HEADER);
     }
 
-    sla::WelfordStats ax, ay, az, gx, gy, gz, dt_stats;
+    sla::WelfordStats ax, ay, az, gx, gy, gz;
     bool have_last_t = false;
     double last_t = 0.0;
     
@@ -67,16 +66,6 @@ int main(int argc, char *argv[])
         gx.update(row[4]);
         gy.update(row[5]);
         gz.update(row[6]);
-
-        if (have_last_t)
-        {
-            double dt = t - last_t;
-            if (dt > 0.0)
-                dt_stats.update(dt);  // Для чого коли тут є і дублікати ??
-        }
-
-        last_t = t;
-        have_last_t = true;
 
         if (do_clean)
         {
