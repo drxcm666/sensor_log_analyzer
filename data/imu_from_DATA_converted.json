@@ -1,0 +1,72 @@
+{
+    "input": "imu_from_DATA_converted.csv",
+    "counts": {
+        "total_lines": 80004,
+        "empty_lines": 0,
+        "comment_lines": 2,
+        "header_lines": 1,
+        "parsed_lines": 80001,
+        "bad_lines": 0
+    },
+    "warnings": [],
+    "time_axis": {
+        "dt_available": true,
+        "dt_ms": {
+            "count": 80000,
+            "min": 10.0,
+            "max": 10.0,
+            "mean": 10.0,
+            "std": 0.0
+        },
+        "sampling_hz_est": 100.0,
+        "anomalies": {
+            "non_increasing": 0,
+            "duplicates": 0,
+            "gaps": 0
+        }
+    },
+    "statistics": {
+        "ax": {
+            "count": 80001,
+            "min": -10.5553338178762,
+            "max": 9.94360453022837,
+            "mean": -0.22393713694353246,
+            "std": 7.0796168314958265
+        },
+        "ay": {
+            "count": 80001,
+            "min": -9.73581782928999,
+            "max": 10.1457981670398,
+            "mean": 0.11981801411448385,
+            "std": 4.746903971871245
+        },
+        "az": {
+            "count": 80001,
+            "min": -10.2965468787305,
+            "max": 10.5094496014156,
+            "mean": 0.13551773875150006,
+            "std": 5.010603865278024
+        },
+        "gx": {
+            "count": 80001,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0,
+            "std": 0.0
+        },
+        "gy": {
+            "count": 80001,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0,
+            "std": 0.0
+        },
+        "gz": {
+            "count": 80001,
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0,
+            "std": 0.0
+        }
+    }
+}

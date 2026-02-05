@@ -8,10 +8,11 @@ void print_usage(std::string_view prog)
 {
     fmt::println(
         "Usage:\n"
-        "  {} --input <file> [--clean]\n"
+        "  {} --input <file> [--clean | --calib]\n"
         "\nOptions:\n"
         "  --input <file>   Input CSV file\n"
         "  --clean          Write cleaned CSV next to input with _clean suffix\n"
+        "  --calib Calibration mode (coeffs + errors + export for plots)\n"
         "  -h, --help       Show this help\n",
         prog.empty() ? "program" : prog
     );
@@ -43,6 +44,13 @@ ParseResult parse_args(int argc, char* argv[])
                 return Error{"only one command allowed"};
 
             opt.cmd = Command::Clean;
+        }
+        else if (arg == "--calib")
+        {
+            if (opt.cmd != Command::None)
+                return Error{"only one command allowed"};
+            
+            opt.cmd = Command::Calib;
         }
         else
         {

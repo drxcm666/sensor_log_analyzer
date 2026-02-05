@@ -11,9 +11,10 @@ add_executable(sla
     src/number_parse.cpp
     src/time_axis.cpp
     src/csv.cpp
-    src/clean_writer.cpp
+    src/writer.cpp
     src/report_json.cpp
     src/cli.cpp
+    src/calibration.cpp
 )
 
 target_include_directories(sla PRIVATE 

@@ -11,7 +11,8 @@ namespace sla::cli {
 enum class Command
 {
     None,   // ./program --input data.csv  # Command::None (analysis only)
-    Clean   // ./program --input data.csv --clean  # Command::Clean (analysis + record clean CSV)
+    Clean,   // ./program --input data.csv --clean  # Command::Clean (analysis + record clean CSV)
+    Calib
 };
 
 struct Options

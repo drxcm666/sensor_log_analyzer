@@ -1,10 +1,12 @@
 #include "welford_stats.hpp"
-#include "clean_writer.hpp"
 #include "report_json.hpp"
+#include "calibration.hpp"
 #include "time_axis.hpp"
 #include "report.hpp"
+#include "writer.hpp"
 #include "cli.hpp"
 #include "csv.hpp"
+
 
 #include <iostream>
 #include <fmt/core.h>
@@ -12,7 +14,7 @@
 #include <filesystem>
 #include <variant>
 #include <array>
-#include <cmath>
+#include <vector>
 
 
 int main(int argc, char *argv[])
@@ -29,6 +31,7 @@ int main(int argc, char *argv[])
 
     auto opt = std::get<sla::cli::Options>(parse_result);
 
+
     if (opt.show_help)
     {
         sla::cli::print_usage(argv[0]);
@@ -36,7 +39,9 @@ int main(int argc, char *argv[])
     }
 
     const bool do_clean = (opt.cmd == sla::cli::Command::Clean);
-    sla::CleanWriter writer;
+    const bool do_calib = (opt.cmd == sla::cli::Command::Calib);
+
+    sla::CsvWriter writer;
 
     if (do_clean)
     {
@@ -50,10 +55,53 @@ int main(int argc, char *argv[])
         writer.write_header(sla::EXPECTED_HEADER);
     }
 
+    if (do_calib)
+    {
+        auto input_dir = std::filesystem::path(opt.input_file).parent_path();
+        auto calib_output_path = sla::make_calib_path(opt.input_file);
+
+        sla::CalibrationOptions calib_opt;
+        calib_opt.input_path = opt.input_file;
+        calib_opt.position_path = input_dir / "POSITION.txt";
+        calib_opt.output_path = calib_output_path;
+
+        auto r = sla::run_calibration(calib_opt);
+
+        if (!r.ok)
+        {
+            fmt::println(stderr, "Calibration error: {}", r.error);
+            return 1;
+        }
+
+        fmt::println("Calibrated file: {}", calib_output_path.string());
+        fmt::println("parsed_lines = {}", r.parsed_lines);
+        fmt::println("npos={} L={} steady=[{}, {})", r.npos, r.L, r.steady_start, r.steady_end);
+
+        fmt::println("Raw(all)   max(|mag-g|) = {:.6f}", r.max_abs_mag_raw_all);
+        fmt::println("Raw(steady) max(|mag-g|) = {:.6f}", r.max_abs_mag_raw_steady);
+        fmt::println("Corr(steady)max(|mag-g|) = {:.6f}", r.max_abs_mag_corr_steady);
+
+        fmt::println("Corr mag stats: mean={:.6f} std={:.6f} min={:.6f} max={:.6f}",
+                    r.mag_corr_stats.mean, r.mag_corr_stats.std,
+                    r.mag_corr_stats.min,  r.mag_corr_stats.max);
+
+        fmt::println("M=");
+        fmt::println("[{:.6f} {:.6f} {:.6f}]", r.M.a[0][0], r.M.a[0][1], r.M.a[0][2]);
+        fmt::println("[{:.6f} {:.6f} {:.6f}]", r.M.a[1][0], r.M.a[1][1], r.M.a[1][2]);
+        fmt::println("[{:.6f} {:.6f} {:.6f}]", r.M.a[2][0], r.M.a[2][1], r.M.a[2][2]);
+
+        fmt::println("b=({:.6f},{:.6f},{:.6f})", r.b.x, r.b.y, r.b.z);
+
+        fmt::println("C=inv(M)=");
+        fmt::println("[{:.6f} {:.6f} {:.6f}]", r.C.a[0][0], r.C.a[0][1], r.C.a[0][2]);
+        fmt::println("[{:.6f} {:.6f} {:.6f}]", r.C.a[1][0], r.C.a[1][1], r.C.a[1][2]);
+        fmt::println("[{:.6f} {:.6f} {:.6f}]", r.C.a[2][0], r.C.a[2][1], r.C.a[2][2]);
+        
+        return 0;
+    }
+
     sla::WelfordStats ax, ay, az, gx, gy, gz;
-    bool have_last_t = false;
-    double last_t = 0.0;
-    
+
     auto pass1 = sla::read_imu_csv_streaming(opt.input_file,
     // lambda
     [&](const std::array<double, 7> &row)
@@ -82,7 +130,6 @@ int main(int argc, char *argv[])
         return 1;
     }
     
-    // ???
     auto to_stats = [](const sla::WelfordStats &w)
     {
         sla::Stats s;
