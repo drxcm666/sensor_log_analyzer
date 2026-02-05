@@ -27,10 +27,10 @@ public:
     const std::filesystem::path& path() const { return path_; }
 
     // Write down the header
-    void write_header(const std::array<std::string_view, 7> &header);
+    void write_header(const std::array<std::string_view, 4> &header);
 
     // Write one line of values (we expect == header.size)
-    void write_row(const std::array<double, 7> &v);
+    void write_row(const std::array<double, 4> &v);
 
     // Close file
     void close();

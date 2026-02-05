@@ -383,7 +383,7 @@ CalibrationResult run_calibration(const CalibrationOptions &opt)
     // Read data 1
     double max_abs_mag_raw_all{0.0};
     auto calib_pass1 = sla::read_imu_csv_streaming(opt.input_path,
-    [&](const std::array<double, 7> &row)
+    [&](const std::array<double, 4> &row)
     {
         const double ax_raw = row[1], ay_raw = row[2], az_raw = row[3];
         const double mag_raw = std::sqrt(ax_raw*ax_raw + ay_raw*ay_raw + az_raw*az_raw);
@@ -420,7 +420,7 @@ CalibrationResult run_calibration(const CalibrationOptions &opt)
     int row_count2{0};
 
     auto calib_pass2 = sla::read_imu_csv_streaming(opt.input_path,
-    [&](const std::array<double, 7> &row)
+    [&](const std::array<double, 4> &row)
     {
         const int block = row_count2 / L; // (0...7)
         const int offset = row_count2 % L; //  (0...L-1)
@@ -531,7 +531,7 @@ CalibrationResult run_calibration(const CalibrationOptions &opt)
     int row_count3{0};
 
     auto calib_pass3 = sla::read_imu_csv_streaming(opt.input_path,
-    [&](const std::array<double, 7> &row)
+    [&](const std::array<double, 4> &row)
     {
         const int block = row_count3 / L; // (0...7)
         const int offset = row_count3 % L; //  (0...L-1)
@@ -548,7 +548,7 @@ CalibrationResult run_calibration(const CalibrationOptions &opt)
         const double mag_corr = std::sqrt(corr.x*corr.x + corr.y*corr.y + corr.z*corr.z);
 
         // always write corrected rows
-        std::array<double, 7> out = row;
+        std::array<double, 4> out = row;
         out[1] = corr.x;
         out[2] = corr.y;
         out[3] = corr.z;

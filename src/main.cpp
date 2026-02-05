@@ -8,13 +8,11 @@
 #include "csv.hpp"
 
 
-#include <iostream>
 #include <fmt/core.h>
 #include <string>
 #include <filesystem>
 #include <variant>
 #include <array>
-#include <vector>
 
 
 int main(int argc, char *argv[])
@@ -100,20 +98,15 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    sla::WelfordStats ax, ay, az, gx, gy, gz;
+    sla::WelfordStats ax, ay, az;
 
     auto pass1 = sla::read_imu_csv_streaming(opt.input_file,
     // lambda
-    [&](const std::array<double, 7> &row)
+    [&](const std::array<double, 4> &row)
     {
-        const double t = row[0];
-
         ax.update(row[1]);
         ay.update(row[2]);
         az.update(row[3]);
-        gx.update(row[4]);
-        gy.update(row[5]);
-        gz.update(row[6]);
 
         if (do_clean)
         {
@@ -155,7 +148,7 @@ int main(int argc, char *argv[])
         [&](const sla::TimestampVisitor &visit)
         {
             (void)sla::read_imu_csv_streaming(opt.input_file,
-                [&](const std::array<double, 7> &row)
+                [&](const std::array<double, 4> &row)
                 {
                     visit(row[0]);
                 });
@@ -164,9 +157,6 @@ int main(int argc, char *argv[])
     report.statistics.ax = to_stats(ax);
     report.statistics.ay = to_stats(ay);
     report.statistics.az = to_stats(az);
-    report.statistics.gx = to_stats(gx);
-    report.statistics.gy = to_stats(gy);
-    report.statistics.gz = to_stats(gz);
     
     auto json_path = sla::default_report_json_path(pass1.input_path);
 
@@ -180,7 +170,6 @@ int main(int argc, char *argv[])
         fmt::println(stderr, "Error writing JSON: {}", e.what());
         return 1;
     }
-
 
     fmt::println("\n=== Analysis Summary ===");
     fmt::println("Input file: {}", report.input);

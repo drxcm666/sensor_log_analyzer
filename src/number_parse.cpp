@@ -142,8 +142,8 @@ bool parse_simple_double(std::string_view s, double &out)
 }
 
 bool parse_row_to_array_sv(
-    const std::array<std::string_view, 7> &tokens,
-    std::array<double, 7> &out,
+    const std::array<std::string_view, 4> &tokens,
+    std::array<double, 4> &out,
     std::size_t &bad_idx)
 {
     for (std::size_t i = 0; i < out.size(); i++)

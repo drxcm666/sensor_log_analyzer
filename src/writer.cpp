@@ -45,7 +45,7 @@ bool CsvWriter::open(const std::filesystem::path &out_path)
     return true;
 }
 
-void CsvWriter::write_header(const std::array<std::string_view, 7> &header)
+void CsvWriter::write_header(const std::array<std::string_view, 4> &header)
 {
     for (size_t i = 0; i < header.size(); i++)
     {
@@ -56,10 +56,9 @@ void CsvWriter::write_header(const std::array<std::string_view, 7> &header)
     out_ << '\n';
 }
 
-void CsvWriter::write_row(const std::array<double, 7> &v)
+void CsvWriter::write_row(const std::array<double, 4> &v)
 {
-    out_ << v[0] << ',' << v[1] << ',' << v[2] << ',' << v[3] << ','
-         << v[4] << ',' << v[5] << ',' << v[6] << '\n';
+    out_ << v[0] << ',' << v[1] << ',' << v[2] << ',' << v[3] << '\n';
     
 }
 

@@ -83,9 +83,6 @@ static nlohmann::ordered_json statistics_to_json(const ImuStatistics &s)
         {"ax", stats_to_json(s.ax)},
         {"ay", stats_to_json(s.ay)},
         {"az", stats_to_json(s.az)},
-        {"gx", stats_to_json(s.gx)},
-        {"gy", stats_to_json(s.gy)},
-        {"gz", stats_to_json(s.gz)},
     };
 }
 

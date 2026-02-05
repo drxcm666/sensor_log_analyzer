@@ -12,7 +12,7 @@
 namespace sla {
 
 
-static bool is_expected_header(const std::array<std::string_view, 7> &tokens)
+static bool is_expected_header(const std::array<std::string_view, 4> &tokens)
 {
     if (tokens.size() != EXPECTED_HEADER.size()) return false;
 
@@ -69,7 +69,7 @@ CsvStreamResult read_imu_csv_streaming(
             continue;
         }
         
-        std::array<std::string_view, 7> tokens;
+        std::array<std::string_view, 4> tokens;
         std::size_t actual_cols = 0;
 
         // split
@@ -80,7 +80,7 @@ CsvStreamResult read_imu_csv_streaming(
         {
             r.counts.bad_lines++;
             r.warnings.push_back(Warning{
-                "incorrect number of columns (expected 7, got " + std::to_string(actual_cols) + ")",
+                "incorrect number of columns (expected 4, got " + std::to_string(actual_cols) + ")",
                 r.counts.total_lines,
                 std::nullopt,
                 std::nullopt
@@ -96,7 +96,7 @@ CsvStreamResult read_imu_csv_streaming(
             continue;
         }
 
-        std::array<double, 7> row{};
+        std::array<double, 4> row{};
         std::size_t bad_idx{0};
 
         if (parse_row_to_array_sv(tokens, row, bad_idx)) // here, “row” from main is filled with numbers
@@ -107,10 +107,10 @@ CsvStreamResult read_imu_csv_streaming(
             // using Meter = double;
             //
             // read_imu_csv — це людина, яка читає файл
-            // std::array<double,7> — це листок з 7 цифрами (один рядок)
+            // std::array<double,4> — це листок з 4 цифрами (один рядок)
             // std::function — це інструкція, що робити з листком
             //
-            // on_row({v[0], v[1], v[2], v[3], v[4], v[5], v[6]});
+            // on_row({v[0], v[1], v[2], v[3]});
             // Це читається так:
             // “Я (read_imu_csv) зробив 7 чисел.
             // Ось вони. Тримай. Виконай інструкцію on_row.”
@@ -120,7 +120,7 @@ CsvStreamResult read_imu_csv_streaming(
             //
             // (в іншому файлі)
             // read_imu_csv("imu.csv",
-            //   [](const std::array<double,7>& row) {
+            //   [](const std::array<double,4>& row) {
             //       std::cout << row[0] << "\n";
             //   }
             // );
@@ -133,7 +133,7 @@ CsvStreamResult read_imu_csv_streaming(
             //--------------------------------------
             // if (on_row)
             // checks whether the string handler has been passed, and if so, calls it
-            // sla::read_imu_csv_streaming(opt.input_file, [&](const std::array<double, 7>& row)
+            // sla::read_imu_csv_streaming(opt.input_file, [&](const std::array<double, 4>& row)
             if (on_row)
             {
                 on_row(row); // = “execute the callback that was passed to me.”

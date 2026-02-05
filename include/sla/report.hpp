@@ -37,9 +37,6 @@ struct ImuStatistics
     Stats ax{};
     Stats ay{};
     Stats az{};
-    Stats gx{};
-    Stats gy{};
-    Stats gz{};
 };
 
 // Main result of the analysis (all json “j”)
