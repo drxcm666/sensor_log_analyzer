@@ -7,7 +7,6 @@
 #include "cli.hpp"
 #include "csv.hpp"
 
-
 #include <fmt/core.h>
 #include <string>
 #include <filesystem>
