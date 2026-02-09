@@ -1,18 +1,31 @@
-#include "welford_stats.hpp"
-#include "report_json.hpp"
-#include "calibration.hpp"
-#include "time_axis.hpp"
-#include "report.hpp"
-#include "writer.hpp"
-#include "cli.hpp"
-#include "csv.hpp"
+#include "sla/welford_stats.hpp"
+#include "sla/report_json.hpp"
+#include "sla/calibration.hpp"
+#include "sla/time_axis.hpp"
+#include "sla/report.hpp"
+#include "sla/writer.hpp"
+#include "sla/cli.hpp"
+#include "sla/csv.hpp"
 
+#include <system_error>
 #include <fmt/core.h>
-#include <string>
 #include <filesystem>
 #include <variant>
+#include <chrono>
+#include <string>
 #include <array>
 
+
+static std::filesystem::path make_tmp_sibling(std::filesystem::path &final_path)
+{
+    const auto dir = final_path.parent_path();
+    const auto base = final_path.filename().string();
+
+    std::filesystem::path p = dir / (base + ".tmp");
+    std::error_code ec;
+    std::filesystem::remove(p, ec);
+    return p;
+}
 
 int main(int argc, char *argv[])
 {
@@ -38,14 +51,19 @@ int main(int argc, char *argv[])
     const bool do_clean = (opt.cmd == sla::cli::Command::Clean);
     const bool do_calib = (opt.cmd == sla::cli::Command::Calib);
 
+    std::filesystem::path clean_final_path;
+    std::filesystem::path clean_tmp_path;
+
     sla::CsvWriter writer;
 
     if (do_clean)
     {
-        auto clean_path = sla::make_clean_path(opt.input_file);
-        if (!writer.open(clean_path)) // Open file for writing
+        clean_final_path = sla::make_clean_path(opt.input_file);
+        clean_tmp_path = make_tmp_sibling(clean_final_path);
+
+        if (!writer.open( clean_tmp_path)) // Open file for writing
         {
-            fmt::println(stderr, "Error: can't open file for writing: {}", clean_path.string());
+            fmt::println(stderr, "Error: can't open file for writing: {}",  clean_tmp_path.string());
             return 1;
         }
 
@@ -59,7 +77,9 @@ int main(int argc, char *argv[])
 
         sla::CalibrationOptions calib_opt;
         calib_opt.input_path = opt.input_file;
-        calib_opt.position_path = input_dir / "POSITION.txt";
+        calib_opt.position_path = opt.position_file.empty() 
+            ? (input_dir / "POSITION.txt")
+            : std::filesystem::path(opt.position_file);
         calib_opt.output_path = calib_output_path;
 
         auto r = sla::run_calibration(calib_opt);
@@ -114,7 +134,46 @@ int main(int argc, char *argv[])
     });
 
     if (do_clean)
+    {
         writer.close();
+
+        if (!pass1.ok)
+        {
+            fmt::println(stderr, 
+                "Warning: clean failed; keeping temp file: {}", 
+                clean_tmp_path.string());
+        }
+        else
+        {
+            std::error_code ec;
+            std::filesystem::rename(clean_tmp_path, clean_final_path, ec);
+
+            if (ec)
+            {
+                std::error_code ec2;
+                std::filesystem::remove(clean_final_path, ec2);
+
+                std::error_code ec3;
+                std::filesystem::rename(clean_tmp_path, clean_final_path, ec3);
+
+                if (ec3)
+                {
+                    fmt::println(stderr, 
+                        "Error: can't finalize clean file.\n"
+                        " temp: {}\n"
+                        " final: {}\n"
+                        " reason: {}",
+                        clean_tmp_path.string(), 
+                        clean_final_path.string(), 
+                        ec3.message());
+                        
+                    return 1;
+                }
+            }
+
+            fmt::println("Clean file: {}", clean_final_path.string());
+        }
+    }
 
     if (!pass1.ok)
     {
@@ -142,6 +201,7 @@ int main(int argc, char *argv[])
     report.input = pass1.input_name;
     report.counts = pass1.counts;
     report.warnings = pass1.warnings;
+    report.warnings_dropped = pass1.warnings_dropped;
 
     report.time_axis = sla::make_time_axis_report_streaming(
         [&](const sla::TimestampVisitor &visit)

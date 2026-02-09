@@ -1,10 +1,9 @@
-#include "time_axis.hpp"
+#include "sla/time_axis.hpp"
 
 #include <cmath>
 
 namespace sla
 {
-
     TimeAxisReport make_time_axis_report_streaming(const TimestampStream &stream)
     {
         TimeAxisReport rep{};

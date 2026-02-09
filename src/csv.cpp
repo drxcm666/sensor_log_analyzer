@@ -1,8 +1,7 @@
-#include "csv.hpp"
-
-#include "util.hpp"         // trim(std::string_view)
-#include "csv_split.hpp"    // split_csv(...) + SplitStatus
-#include "number_parse.hpp" // parse_row_to_array_sv(...)
+#include "sla/csv.hpp"
+#include "sla/util.hpp"         // trim(std::string_view)
+#include "sla/csv_split.hpp"    // split_csv(...) + SplitStatus
+#include "sla/number_parse.hpp" // parse_row_to_array_sv(...)
 
 #include <fstream>
 #include <string>
@@ -25,7 +24,6 @@ static bool is_expected_header(const std::array<std::string_view, 4> &tokens)
 }
 
 
-
 CsvStreamResult read_imu_csv_streaming(
     const std::filesystem::path& path,
     const CsvRowCallback& on_row
@@ -37,6 +35,16 @@ CsvStreamResult read_imu_csv_streaming(
     CsvStreamResult r;
     r.input_path = path;
     r.input_name = path.filename().string();
+
+    constexpr std::size_t MAX_WARNINGS = 200;
+    auto push_warning = [&](Warning w)
+    {
+        if (r.warnings.size() < MAX_WARNINGS)
+            r.warnings.push_back(std::move(w));
+        else
+            r.warnings_dropped++;
+        
+    };
 
     // Open the file for reading 
     std::ifstream file(path);
@@ -79,7 +87,7 @@ CsvStreamResult read_imu_csv_streaming(
         if (split_status != sla::SplitStatus::Ok)
         {
             r.counts.bad_lines++;
-            r.warnings.push_back(Warning{
+            push_warning(Warning{
                 "incorrect number of columns (expected 4, got " + std::to_string(actual_cols) + ")",
                 r.counts.total_lines,
                 std::nullopt,
@@ -103,40 +111,9 @@ CsvStreamResult read_imu_csv_streaming(
         {
             r.counts.parsed_lines++;
 
-            // ??
-            // using Meter = double;
-            //
-            // read_imu_csv — це людина, яка читає файл
-            // std::array<double,4> — це листок з 4 цифрами (один рядок)
-            // std::function — це інструкція, що робити з листком
-            //
-            // on_row({v[0], v[1], v[2], v[3]});
-            // Це читається так:
-            // “Я (read_imu_csv) зробив 7 чисел.
-            // Ось вони. Тримай. Виконай інструкцію on_row.”
-            //
-            // коли викликаєш read_imu_csv.
-            // Приклад: інструкція “надрукуй”
-            //
-            // (в іншому файлі)
-            // read_imu_csv("imu.csv",
-            //   [](const std::array<double,4>& row) {
-            //       std::cout << row[0] << "\n";
-            //   }
-            // );
-            //
-            // Тут ти дав інструкцію: друкувати перше число.
-            //
-            // Тут std::function зберігає НЕ числа, а оцю “дію друку” (лямбду).
-            // А числа (row) приходять кожного разу нові, коли читається новий рядок.
-            //
-            //--------------------------------------
-            // if (on_row)
-            // checks whether the string handler has been passed, and if so, calls it
-            // sla::read_imu_csv_streaming(opt.input_file, [&](const std::array<double, 4>& row)
             if (on_row)
             {
-                on_row(row); // = “execute the callback that was passed to me.”
+                on_row(row); // = “execute the callback that was passed to me”
             }
         }
         else
@@ -149,7 +126,7 @@ CsvStreamResult read_imu_csv_streaming(
             w.column = bad_idx + 1;
             w.value = std::string(tokens[bad_idx]);
 
-            r.warnings.push_back(std::move(w));
+            push_warning(std::move(w));
         }
     }
 

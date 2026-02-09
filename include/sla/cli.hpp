@@ -18,6 +18,7 @@ enum class Command
 struct Options
 {
     std::string input_file;
+    std::string position_file;
     Command cmd{Command::None};
     bool show_help{false};
 };

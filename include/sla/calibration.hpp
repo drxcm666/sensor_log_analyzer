@@ -46,7 +46,7 @@ struct CalibrationResult
     Mat3 M{};                // measurement model a_meas = M*a_true + b
     Vec3 b{};                // bias in the measurement model
     Mat3 C{};                // correction matrix = inv(M)
-    Vec3 d{};                // correction bias = b
+    Vec3 d{};                // correction bias -C*b
 
     double max_abs_mag_raw_all{};           // max(|mag_raw - g|) (all)
     double max_abs_mag_raw_steady{};        // per steady window

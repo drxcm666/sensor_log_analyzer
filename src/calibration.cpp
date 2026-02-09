@@ -1,6 +1,6 @@
-#include "calibration.hpp"
-#include "writer.hpp"
-#include "csv.hpp"
+#include "sla/calibration.hpp"
+#include "sla/writer.hpp"
+#include "sla/csv.hpp"
 
 #include <fstream>
 #include <cmath>
@@ -125,41 +125,6 @@ namespace sla
         }
     }
 
-    /*
-    A:24×12, Aᵀ:12×24, y:24×1, AᵀA=12×12, Aᵀy:12×1
-
-             ┌────────────────────────────────────────────────────┐
-             │ m11 m12 m13 | m21 m22 m23 | m31 m32 m33 | bx by bz │
-        ┌────┼────────────────────────────────────────────────────┤
-        │    │ tx0 ty0 tz0 |  0   0   0  |  0   0   0  |  1  0  0 │  row0  -> mx0
-        │    │  0   0   0  | tx0 ty0 tz0 |  0   0   0  |  0  1  0 │  row1  -> my0
-        │    │  0   0   0  |  0   0   0  | tx0 ty0 tz0 |  0  0  1 │  row2  -> mz0
-        │    │							                          │
-        │    │ tx1 ty1 tz1 |  0   0   0  |  0   0   0  |  1  0  0 │  row3  -> mx1
-        │    │  0   0   0  | tx1 ty1 tz1 |  0   0   0  |  0  1  0 │  row4  -> my1
-        │    │  0   0   0  |  0   0   0  | tx1 ty1 tz1 |  0  0  1 │  row5  -> mz1
-        │    │							                          │
-        │    │                   ... (i=7) ...                    │
-        │    │							                          │
-        │    │ tx7 ty7 tz7 |  0   0   0  |  0   0   0  |  1  0  0 │  row21 -> mx7
-        │    │  0   0   0  | tx7 ty7 tz7 |  0   0   0  |  0  1  0 │  row22 -> my7
-        │    │  0   0   0  |  0   0   0  | tx7 ty7 tz7 |  0  0  1 │  row23 -> mz7
-        └────┴────────────────────────────────────────────────────┘
-
-                ┌─────┐
-    y (24×1)  = │ mx0 │
-                │ my0 │
-                │ mz0 │
-                │ mx1 │
-                │ my1 │
-                │ mz1 │
-                │ ... │
-                │ mx7 │
-                │ my7 │
-                │ mz7 │
-                └─────┘
-    */
-
     // (At*A)*x = At*Y
     static void compute_normal_equations(
         const std::vector<std::array<double, 12>> &A,
@@ -177,13 +142,6 @@ namespace sla
         {
             const auto &ar = A[r]; // row r of A
             const auto &yr = Y[r]; // y value for row r
-
-            // Example for r=0 (mx row, position 0):
-            // ar = [t0.x, t0.y, t0.z, 0, 0, 0, 0, 0, 0, 1, 0, 0], yr = mx0.
-            // i=0 -> AtY[0] += t0.x * mx0, i=1 -> AtY[1] += t0.y * mx0, i=3 -> AtY[3] += 0 * mx0.
-            // Example for r=1 (my row, position 0):
-            // ar = [0, 0, 0, t0.x, t0.y, t0.z, 0, 0, 0, 0, 1, 0], yr = my0.
-            // Aty += A^T * y
 
             // Aty += A^T * y
             for (int i = 0; i < 12; i++)
@@ -210,7 +168,6 @@ namespace sla
         std::array<double, 12> &x,
         std::string &error)
     {
-
         // Pass a and b as copies (so they can be destroyed during the method)
         // x — result
 
@@ -386,12 +343,12 @@ namespace sla
         // Read data 1
         double max_abs_mag_raw_all{0.0};
         auto calib_pass1 = sla::read_imu_csv_streaming(opt.input_path,
-                                                       [&](const std::array<double, 4> &row)
-                                                       {
-                                                           const double ax_raw = row[1], ay_raw = row[2], az_raw = row[3];
-                                                           const double mag_raw = std::sqrt(ax_raw * ax_raw + ay_raw * ay_raw + az_raw * az_raw);
-                                                           max_abs_mag_raw_all = std::max(max_abs_mag_raw_all, std::abs(mag_raw - opt.gravity));
-                                                       });
+        [&](const std::array<double, 4> &row)
+        {
+            const double ax_raw = row[1], ay_raw = row[2], az_raw = row[3];
+            const double mag_raw = std::sqrt(ax_raw * ax_raw + ay_raw * ay_raw + az_raw * az_raw);
+            max_abs_mag_raw_all = std::max(max_abs_mag_raw_all, std::abs(mag_raw - opt.gravity));
+        });
 
         if (!calib_pass1.ok)
         {
@@ -402,7 +359,37 @@ namespace sla
 
         const int N = static_cast<int>(calib_pass1.counts.parsed_lines); // 80000
         const int npos = static_cast<int>(positions.size());             // 8
-        const int L = N / npos;
+
+        if (N <= 0)
+        {
+            res.ok = false;
+            res.error = "no parsed data lines (N<=0)";
+            return res;
+        }
+        if (npos <= 0) 
+        {
+            res.ok = false;
+            res.error = "No calibration positions (npos==0). POSITION.txt is empty or invalid.";
+            return res;
+        }
+
+        // how many lines are “extra” for equal blocks
+        const int rem = (npos > 0) ? (N % npos) : 0;
+        int N_used = N;
+
+        std::string block_warning;
+        if (rem != 0)
+        {
+            N_used = N - rem;
+            block_warning = 
+                "parsed_lines (" + std::to_string(N) + ") is not divisible by npos (" + std::to_string(npos) + "). "
+                "Truncating tail for calibration fit: dropped " + std::to_string(rem) +
+                " samples; used " + std::to_string(N_used) + ".";
+
+            fmt::println(stderr, "Warning: {}", block_warning);
+        }
+
+        const int L = N_used / npos;
 
         if (L <= 0)
         {
@@ -420,25 +407,30 @@ namespace sla
         std::array<double, 8> ax_mean{}, ay_mean{}, az_mean{};
 
         int row_count2{0};
-
         auto calib_pass2 = sla::read_imu_csv_streaming(opt.input_path,
-                                                       [&](const std::array<double, 4> &row)
-                                                       {
-                                                           const int block = row_count2 / L;  // (0...7)
-                                                           const int offset = row_count2 % L; //  (0...L-1)
-                                                           row_count2++;
+        [&](const std::array<double, 4> &row)
+        {
+            if (row_count2 >= N_used)
+            {
+                row_count2++;
+                return;
+            }
 
-                                                           if (block >= npos)
-                                                               return;
+            const int block = row_count2 / L;  // (0...7)
+            const int offset = row_count2 % L; //  (0...L-1)
 
-                                                           if (steady_start <= offset && offset < steady_end)
-                                                           {
-                                                               sum_ax[block] += row[1];
-                                                               sum_ay[block] += row[2];
-                                                               sum_az[block] += row[3];
-                                                               cnt[block]++;
-                                                           }
-                                                       });
+            if (block < 0 || block >= npos) {row_count2++; return;}
+
+            if (steady_start <= offset && offset < steady_end)
+            {
+                sum_ax[block] += row[1];
+                sum_ay[block] += row[2];
+                sum_az[block] += row[3];
+                cnt[block]++;
+            }
+
+            row_count2++;
+        });
 
         if (!calib_pass2.ok)
         {
@@ -544,9 +536,13 @@ namespace sla
         j["meta"] = {
             {"gravity", opt.gravity},
             {"L", L},
-            {"steady_start", opt.steady_start_frac},
-            {"steady_end", opt.steady_end_frac},
-            {"npos", npos}};
+            {"steady_start_frac", opt.steady_start_frac},
+            {"steady_end_frac", opt.steady_end_frac},
+            {"npos", npos},
+            {"parsed_lines_total", N},
+            {"used_lines_for_fit", N_used},
+            {"dropped_tail_lines", (N-N_used)}
+        };
 
         j["coeffs"] = {
             {"M", {
@@ -565,13 +561,25 @@ namespace sla
                 {Minv.a[2][0], Minv.a[2][1], Minv.a[2][2]}
             }}
         };
-
+        
         j["points"] = points;
+
+        if (!block_warning.empty())
+        {
+            j["warnings"] = nlohmann::ordered_json::array();
+            j["warnings"].push_back(block_warning);
+        }
 
         std::filesystem::path report_path = std::filesystem::path(opt.output_path);
         report_path.replace_extension(".json");
 
         std::ofstream file(report_path.string());
+        if (!file)
+        {
+            res.ok = false;
+            res.error = "can't open calibration report file for writing: " + report_path.string();
+            return res;
+        }
         file << j.dump(4);
         file.close();
 
@@ -591,41 +599,50 @@ namespace sla
         int row_count3{0};
 
         auto calib_pass3 = sla::read_imu_csv_streaming(opt.input_path,
-                                                       [&](const std::array<double, 4> &row)
-                                                       {
-                                                           const int block = row_count3 / L;  // (0...7)
-                                                           const int offset = row_count3 % L; //  (0...L-1)
-                                                           row_count3++;
+        [&](const std::array<double, 4> &row)
+        {
+            if (row_count3 >= N_used) 
+            {
+                row_count3++;
+                return;
+            }
 
-                                                           // raw accel
-                                                           const Vec3 raw{row[1], row[2], row[3]};
+            const int block = row_count3 / L;  // (0...7)
+            const int offset = row_count3 % L; //  (0...L-1)
 
-                                                           // a_corr = Minv * (raw - b)
-                                                           const Vec3 raw_minus_b = vec3_sub(raw, b);
-                                                           const Vec3 corr = mat3_mul_vec3(Minv, raw_minus_b);
+            // raw accel
+            const Vec3 raw{row[1], row[2], row[3]};
 
-                                                           const double mag_raw = std::sqrt(raw.x * raw.x + raw.y * raw.y + raw.z * raw.z);
-                                                           const double mag_corr = std::sqrt(corr.x * corr.x + corr.y * corr.y + corr.z * corr.z);
+            // a_corr = Minv * (raw - b)
+            const Vec3 raw_minus_b = vec3_sub(raw, b);
+            const Vec3 corr = mat3_mul_vec3(Minv, raw_minus_b);
 
-                                                           // always write corrected rows
-                                                           std::array<double, 4> out = row;
-                                                           out[1] = corr.x;
-                                                           out[2] = corr.y;
-                                                           out[3] = corr.z;
-                                                           calib_writer.write_row(out);
+            const double mag_raw = std::sqrt(raw.x * raw.x + raw.y * raw.y + raw.z * raw.z);
+            const double mag_corr = std::sqrt(corr.x * corr.x + corr.y * corr.y + corr.z * corr.z);
 
-                                                           // steady-only metrics (valid blocks only)
-                                                           if (block < npos && steady_start <= offset && offset < steady_end)
-                                                           {
-                                                               mag_corr_stats.update(mag_corr);
+            // always write corrected rows
+            std::array<double, 4> out = row;
+            out[1] = corr.x;
+            out[2] = corr.y;
+            out[3] = corr.z;
+            calib_writer.write_row(out);
 
-                                                               max_abs_mag_raw_minus_g_steady = std::max(max_abs_mag_raw_minus_g_steady,
-                                                                                                         std::abs(mag_raw - opt.gravity));
+            // steady-only metrics (valid blocks only)
+            if (steady_start <= offset && offset < steady_end)
+            {
+                mag_corr_stats.update(mag_corr);
 
-                                                               max_abs_mag_corr_minus_g_steady = std::max(max_abs_mag_corr_minus_g_steady,
-                                                                                                          std::abs(mag_corr - opt.gravity));
-                                                           }
-                                                       });
+                max_abs_mag_raw_minus_g_steady = 
+                std::max(max_abs_mag_raw_minus_g_steady, 
+                    std::abs(mag_raw - opt.gravity));
+
+                max_abs_mag_corr_minus_g_steady = 
+                std::max(max_abs_mag_corr_minus_g_steady,
+                    std::abs(mag_corr - opt.gravity));
+            }
+
+            row_count3++;
+        });
 
         calib_writer.close();
 
@@ -652,7 +669,7 @@ namespace sla
         res.M = M;
         res.b = b;
         res.C = Minv; // correction matrix
-        res.d = b;    // correction bias
+        res.d = mat3_mul_vec3(Minv, {-b.x, -b.y, -b.z});    // correction bias
         res.max_abs_mag_raw_steady = max_abs_mag_raw_minus_g_steady;
         res.max_abs_mag_corr_steady = max_abs_mag_corr_minus_g_steady;
 
@@ -666,5 +683,4 @@ namespace sla
 
         return res;
     }
-
 }

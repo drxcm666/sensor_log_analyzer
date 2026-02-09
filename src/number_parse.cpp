@@ -1,9 +1,9 @@
-#include "number_parse.hpp"
+#include "sla/number_parse.hpp"
 
 #include <cctype>
-#include <cerrno>
 #include <cmath>
-#include <cstdlib>
+#include <system_error>  
+#include <fast_float/fast_float.h>
 
 
 namespace sla{
@@ -98,46 +98,32 @@ bool is_simple_decimal(std::string_view s)
 
 
 /*
- * parse_simple_double - Safely converts a string to a double value
- *
- * Parameters:
- *   s   - string to parse
- *   out - reference to variable for storing the result
- *
- * Returns: true if parsing is successful, false on error
- *
  * Processing stages:
- * 1. is_simple_decimal(s) - checks if string contains only digits, decimal point, and sign
- * 2. std::string tmp(s) - copies the string so strtod can find the null terminator
- * 3. errno = 0 - resets the global error variable before calling strtod
- * 4. std::strtod(tmp.c_str(), &end) - converts string to double, end points to unparsed part
- * 5. end != tmp.c_str() + tmp.size() - verifies that the entire string was parsed
- * 6. errno == ERANGE - checks for overflow (number too large/small)
- * 7. std::isfinite(val) - checks if result is not Infinity or NaN
- * 8. out = val - if all checks pass, stores the result in the output variable
+ * 1. is_simple_decimal(s) - validates allowed format (sign, digits, '.', exponent)
+ * 2. begin/end pointers - use the string_view range directly (no allocations)
+ * 3. fast_float::from_chars(begin, end, out, chars_format::general)
+ *    - parses the number and returns {ptr, ec}
+ * 4. ec == std::errc() - ensures no conversion error
+ * 5. ptr == end - ensures the entire string was consumed
+ * 6. std::isfinite(out) - rejects Inf/NaN
  */
 bool parse_simple_double(std::string_view s, double &out)
 {
     if (!is_simple_decimal(s))
         return false;
 
-    std::string tmp(s); // need ‘\0’ at the end for strtod
-    errno = 0;
-    char *end = nullptr;
+    const char *begin = s.data();
+    const char *end = s.data() + s.size();
 
-    double val = std::strtod(tmp.c_str(), &end);
+    auto result = fast_float::from_chars(begin, end, out, 
+                                         fast_float::chars_format::general);
 
-    if (end != tmp.c_str() + tmp.size())
+    if (result.ec != std::errc() || result.ptr != end)
         return false;
-
-    if (errno == ERANGE)
+    
+    if (std::isinf(out) || std::isnan(out))
         return false;
-
-    if (!std::isfinite(val))
-        return false;
-
-    out = val;
-
+    
     return true;
 }
 

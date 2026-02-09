@@ -1,4 +1,4 @@
-#include "report_json.hpp"
+#include "sla/report_json.hpp"
 
 #include <fstream>
 #include <stdexcept>
@@ -105,6 +105,8 @@ nlohmann::ordered_json report_to_json(const Report &r)
     for (const auto &w : r.warnings)
         j["warnings"].push_back(warning_to_json(w));
 
+    j["warnings_dropped"] = r.warnings_dropped;
+        
     j["time_axis"] = time_axis_to_json(r.time_axis);
 
     j["statistics"] = statistics_to_json(r.statistics);

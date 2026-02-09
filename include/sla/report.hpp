@@ -47,6 +47,7 @@ struct Report
     std::vector<Warning> warnings{};
     TimeAxisReport time_axis{};
     ImuStatistics statistics{};
+    std::size_t warnings_dropped{};
 };
 
 }

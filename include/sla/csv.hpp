@@ -27,35 +27,9 @@ struct CsvStreamResult
 
     Counts counts;
     std::vector<Warning> warnings;
+
+    std::size_t warnings_dropped{};
 };
-
-/*
-    using Meter = double;
-
-    read_imu_csv — це людина, яка читає файл
-    std::array<double,4> — це листок з 4 цифрами (один рядок)
-    std::function — це інструкція, що робити з листком
-
-    on_row({v[0], v[1], v[2], v[3]});
-    Це читається так:
-    “Я (read_imu_csv) зробив 7 чисел.
-    Ось вони. Тримай. Виконай інструкцію on_row.”
-
-    коли викликаєш read_imu_csv.
-    Приклад: інструкція “надрукуй”
-
-    (в іншому файлі)
-    read_imu_csv("imu.csv",
-    [](const std::array<double,4>& row) {
-        std::cout << row[0] << "\n";
-    }
-    );
-
-    Тут ти дав інструкцію: друкувати перше число.
-
-    Тут std::function зберігає НЕ числа, а оцю “дію друку” (лямбду).
-    А числа (row) приходять кожного разу нові, коли читається новий рядок.
-*/
 
 using CsvRowCallback = std::function<void(const std::array<double, 4>&)>;
 
