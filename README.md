@@ -338,23 +338,61 @@ All scripts save output images to `plots/` by default (`--outdir` to override).
 
 ## Screenshots
 
-### Residuals: Raw vs Calibrated
+### Calibration Curves
 
-| Before calibration | After calibration |
+Scatter plots of measured vs reference gravity per axis — shows the raw sensor error and how well the correction fits.
+
+| X axis (raw) | X axis (calibrated) |
 |:---:|:---:|
-| ![Residuals raw](docs/screenshots/residuals_x_raw.png) | ![Residuals calibrated](docs/screenshots/residuals_x_corr.png) |
-| Raw bias clearly visible on X axis | Corrected residuals near zero |
+| ![Calib curve X raw](plots/calib_curve_x_raw.png) | ![Calib curve X corr](plots/calib_curve_x_corr.png) |
 
-### RMSE Bar Chart
+| Y axis (raw) | Y axis (calibrated) |
+|:---:|:---:|
+| ![Calib curve Y raw](plots/calib_curve_y_raw.png) | ![Calib curve Y corr](plots/calib_curve_y_corr.png) |
 
-![RMSE comparison](docs/screenshots/bar_rmse_raw_vs_corr.png)
+| Z axis (raw) | Z axis (calibrated) |
+|:---:|:---:|
+| ![Calib curve Z raw](plots/calib_curve_z_raw.png) | ![Calib curve Z corr](plots/calib_curve_z_corr.png) |
 
-> Per-axis RMSE before and after calibration across all 8 positions.
+---
 
-> **How to add screenshots:**
-> 1. Create `docs/screenshots/` in the project root
-> 2. Run the Python scripts to generate plots
-> 3. Copy the output PNGs under the names listed here
+### Residuals vs Reference (8 calibration positions)
+
+| X axis | Y axis | Z axis |
+|:---:|:---:|:---:|
+| ![Residuals X](plots/residuals_x_raw_vs_corr.png) | ![Residuals Y](plots/residuals_y_raw_vs_corr.png) | ![Residuals Z](plots/residuals_z_raw_vs_corr.png) |
+
+Raw residuals show a clear bias offset. After calibration, all three axes center near zero.
+
+---
+
+### Residual Histograms (steady-window samples from full timeseries)
+
+| X axis | Y axis | Z axis |
+|:---:|:---:|:---:|
+| ![Hist X](plots/hist_residuals_x_raw_vs_corr.png) | ![Hist Y](plots/hist_residuals_y_raw_vs_corr.png) | ![Hist Z](plots/hist_residuals_z_raw_vs_corr.png) |
+
+---
+
+### RMSE and MaxAbs — Calibration Points vs Full Timeseries
+
+| RMSE (8 positions) | MaxAbs (8 positions) |
+|:---:|:---:|
+| ![RMSE bar](plots/bar_rmse_raw_vs_corr.png) | ![MaxAbs bar](plots/bar_maxabs_raw_vs_corr.png) |
+
+| RMSE (full timeseries) | MaxAbs (full timeseries) |
+|:---:|:---:|
+| ![RMSE timeseries](plots/bar_rmse_timeseries.png) | ![MaxAbs timeseries](plots/bar_maxabs_timeseries.png) |
+
+---
+
+### Time-Series: Raw vs Calibrated
+
+| ax | ay | az |
+|:---:|:---:|:---:|
+| ![Time ax](plots/time_ax_raw_vs_corr.png) | ![Time ay](plots/time_ay_raw_vs_corr.png) | ![Time az](plots/time_az_raw_vs_corr.png) |
+
+Full ~80 000-sample recording. The DC bias shift on each axis is clearly visible before calibration and removed after.
 
 ---
 
